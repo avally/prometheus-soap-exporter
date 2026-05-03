@@ -1,4 +1,4 @@
-package com.endpointchecker;
+package com.poliproger.endpointchecker;
 
 import org.apache.hc.client5.http.auth.*;
 import org.apache.hc.client5.http.classic.methods.HttpPost;

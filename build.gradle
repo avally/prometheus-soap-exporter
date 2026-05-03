@@ -4,7 +4,7 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
-group = 'com.endpointchecker'
+group = 'com.poliproger.endpointchecker'
 version = '1.0.0'
 
 java {
@@ -34,7 +34,7 @@ dependencies {
 }
 
 application {
-    mainClass = 'com.endpointchecker.Main'
+    mainClass = 'com.poliproger.endpointchecker.Main'
 }
 
 shadowJar {

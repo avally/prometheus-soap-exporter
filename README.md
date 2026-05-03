@@ -17,7 +17,7 @@ Prometheus exporter для активного мониторинга SOAP-энд
 docker run -d --name soap-exporter \
   -p 9116:9116 \
   -v $(pwd)/endpoints.yml:/app/endpoints.yml:ro \
-  ghcr.io/avally/prometheus-soap-exporter:latest
+  ghcr.io/poliproger/prometheus-soap-exporter:latest
 ```
 
 Метрики на `http://localhost:9116/metrics`.
@@ -134,7 +134,7 @@ docker compose up --build
 ```yaml
 services:
   soap-exporter:
-    image: ghcr.io/avally/prometheus-soap-exporter:0.1.0
+    image: ghcr.io/poliproger/prometheus-soap-exporter:0.1.0
     container_name: soap-exporter
     volumes:
       - ./endpoints.yml:/app/endpoints.yml:ro
@@ -155,7 +155,7 @@ docker build -t prometheus-soap-exporter:dev .
 
 ## Versioning & releases
 
-Образы публикуются в GitHub Container Registry: `ghcr.io/avally/prometheus-soap-exporter`.
+Образы публикуются в GitHub Container Registry: `ghcr.io/poliproger/prometheus-soap-exporter`.
 
 Теги:
 - `latest` — последний коммит в `main`

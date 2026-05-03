@@ -1,4 +1,4 @@
-package com.endpointchecker;
+package com.poliproger.endpointchecker;
 
 import org.yaml.snakeyaml.Yaml;
 

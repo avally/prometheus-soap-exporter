@@ -1,4 +1,4 @@
-package com.endpointchecker;
+package com.poliproger.endpointchecker;
 
 import io.prometheus.client.exporter.HTTPServer;
 import org.slf4j.Logger;
