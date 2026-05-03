@@ -18,6 +18,8 @@ class MetricsTest {
         Metrics.ENDPOINT_RESPONSE_SECONDS.clear();
         Metrics.ENDPOINT_STATUS_CODE.clear();
         Metrics.ENDPOINT_CHECKS_TOTAL.clear();
+        Metrics.ENDPOINT_PROBE_DURATION.clear();
+        Metrics.ENDPOINT_INFO.clear();
     }
 
     private static MetricFamilySamples find(String name) {
@@ -37,15 +39,49 @@ class MetricsTest {
         Metrics.ENDPOINT_RESPONSE_SECONDS.labels("svc", "u").set(0);
         Metrics.ENDPOINT_STATUS_CODE.labels("svc", "u").set(0);
         Metrics.ENDPOINT_CHECKS_TOTAL.labels("svc", "u", "success").inc(0);
+        Metrics.ENDPOINT_PROBE_DURATION.labels("svc", "u").observe(0.1);
+        Metrics.ENDPOINT_INFO.labels("svc", "u", "none", "", "200", "true").set(1);
 
         assertNotNull(find("soap_endpoint_up"));
         assertNotNull(find("soap_endpoint_response_seconds"));
         assertNotNull(find("soap_endpoint_status_code"));
+        assertNotNull(find("soap_endpoint_probe_duration_seconds"));
+        assertNotNull(find("soap_endpoint_info"));
         // Counter metric family is exposed under the user-supplied name (already ending in _total).
         assertNotNull(CollectorRegistry.defaultRegistry.getSampleValue(
                 "soap_endpoint_checks_total",
                 new String[]{"name", "url", "result"},
                 new String[]{"svc", "u", "success"}));
+    }
+
+    @Test
+    void histogramRecordsObservationsAndExposesCountAndSum() {
+        Metrics.ENDPOINT_PROBE_DURATION.labels("svc", "http://x/").observe(0.1);
+        Metrics.ENDPOINT_PROBE_DURATION.labels("svc", "http://x/").observe(0.3);
+
+        Double count = CollectorRegistry.defaultRegistry.getSampleValue(
+                "soap_endpoint_probe_duration_seconds_count",
+                new String[]{"name", "url"},
+                new String[]{"svc", "http://x/"});
+        Double sum = CollectorRegistry.defaultRegistry.getSampleValue(
+                "soap_endpoint_probe_duration_seconds_sum",
+                new String[]{"name", "url"},
+                new String[]{"svc", "http://x/"});
+        assertEquals(2.0, count);
+        assertEquals(0.4, sum, 1e-9);
+    }
+
+    @Test
+    void infoMetricCarriesEndpointMetadataAsLabels() {
+        Metrics.ENDPOINT_INFO.labels(
+                "svc", "http://x/", "kerberos", "Ping", "200", "false").set(1);
+
+        Double v = CollectorRegistry.defaultRegistry.getSampleValue(
+                "soap_endpoint_info",
+                new String[]{"name", "url", "auth_type", "soap_action",
+                        "expected_status_code", "tls_verify"},
+                new String[]{"svc", "http://x/", "kerberos", "Ping", "200", "false"});
+        assertEquals(1.0, v);
     }
 
     @Test

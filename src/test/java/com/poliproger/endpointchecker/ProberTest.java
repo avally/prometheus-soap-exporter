@@ -32,10 +32,20 @@ class ProberTest {
         Metrics.ENDPOINT_RESPONSE_SECONDS.clear();
         Metrics.ENDPOINT_STATUS_CODE.clear();
         Metrics.ENDPOINT_CHECKS_TOTAL.clear();
+        Metrics.ENDPOINT_PROBE_DURATION.clear();
+        Metrics.ENDPOINT_INFO.clear();
 
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         port = server.getAddress().getPort();
         captured.set(null);
+    }
+
+    private static void runProbe(AppConfig.Endpoint ep) {
+        try (Prober p = new Prober(ep)) {
+            p.probe();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @AfterEach
@@ -119,7 +129,7 @@ class ProberTest {
         handle(200, "text/xml", "<ok/>");
         AppConfig.Endpoint ep = endpoint("ok-svc", expect(200, null, null));
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(1.0, Metrics.ENDPOINT_UP.labels("ok-svc", ep.url()).get());
         assertEquals(200.0, Metrics.ENDPOINT_STATUS_CODE.labels("ok-svc", ep.url()).get());
@@ -133,7 +143,7 @@ class ProberTest {
         handle(500, "text/xml", "<oops/>");
         AppConfig.Endpoint ep = endpoint("bad", expect(200, null, null));
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(0.0, Metrics.ENDPOINT_UP.labels("bad", ep.url()).get());
         assertEquals(500.0, Metrics.ENDPOINT_STATUS_CODE.labels("bad", ep.url()).get());
@@ -146,7 +156,7 @@ class ProberTest {
         AppConfig.Endpoint ep = endpoint("regex-ok",
                 expect(200, "<Status>OK</Status>", null));
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(1.0, Metrics.ENDPOINT_UP.labels("regex-ok", ep.url()).get());
     }
@@ -157,7 +167,7 @@ class ProberTest {
         AppConfig.Endpoint ep = endpoint("regex-fail",
                 expect(200, "<Status>OK</Status>", null));
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(0.0, Metrics.ENDPOINT_UP.labels("regex-fail", ep.url()).get());
         assertEquals(1.0, Metrics.ENDPOINT_CHECKS_TOTAL.labels("regex-fail", ep.url(), "failure").get());
@@ -169,7 +179,7 @@ class ProberTest {
         AppConfig.Endpoint ep = endpoint("dotall",
                 expect(200, "<a>.*<b/>.*</a>", null));
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(1.0, Metrics.ENDPOINT_UP.labels("dotall", ep.url()).get());
     }
@@ -181,7 +191,7 @@ class ProberTest {
         AppConfig.Endpoint ep = endpoint("xpath-ok",
                 expect(200, null, "//*[local-name()='PingResult' and text()='true']"));
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(1.0, Metrics.ENDPOINT_UP.labels("xpath-ok", ep.url()).get());
     }
@@ -192,7 +202,7 @@ class ProberTest {
         AppConfig.Endpoint ep = endpoint("xpath-miss",
                 expect(200, null, "//PingResult[text()='true']"));
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(0.0, Metrics.ENDPOINT_UP.labels("xpath-miss", ep.url()).get());
     }
@@ -203,7 +213,7 @@ class ProberTest {
         AppConfig.Endpoint ep = endpoint("xpath-bad",
                 expect(200, null, "//something"));
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(0.0, Metrics.ENDPOINT_UP.labels("xpath-bad", ep.url()).get());
         assertEquals(1.0, Metrics.ENDPOINT_CHECKS_TOTAL.labels("xpath-bad", ep.url(), "failure").get());
@@ -217,7 +227,7 @@ class ProberTest {
         AppConfig.Endpoint ep = endpoint("xxe",
                 expect(200, null, "//ok"));
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(0.0, Metrics.ENDPOINT_UP.labels("xxe", ep.url()).get());
     }
@@ -228,7 +238,7 @@ class ProberTest {
         AppConfig.Endpoint ep = endpoint("combined",
                 expect(200, "PingResult", "//PingResult[text()='true']"));
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(1.0, Metrics.ENDPOINT_UP.labels("combined", ep.url()).get());
     }
@@ -242,7 +252,7 @@ class ProberTest {
         handle(200, "text/xml", "<ok/>");
         AppConfig.Endpoint ep = endpoint("post", expect(200, null, null));
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertNotNull(captured.get());
         assertEquals("POST", captured.get().method());
@@ -259,7 +269,7 @@ class ProberTest {
                 "<Envelope><Ping/></Envelope>",
                 null);
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals("<Envelope><Ping/></Envelope>", captured.get().body());
     }
@@ -278,7 +288,7 @@ class ProberTest {
                 "<r/>",
                 null);
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         Map<String, String> got = captured.get().headers();
         // Header names are case-insensitive but Sun's HttpServer canonicalizes to "X-Custom"
@@ -297,7 +307,7 @@ class ProberTest {
                 "<r/>",
                 "GetStatus");
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         // SOAP 1.1 requires SOAPAction value to be a quoted string.
         assertEquals("\"GetStatus\"", captured.get().headers().get("Soapaction"));
@@ -317,7 +327,7 @@ class ProberTest {
                 "<r/>",
                 "Other");
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals("Preset", captured.get().headers().get("Soapaction"));
     }
@@ -333,7 +343,7 @@ class ProberTest {
                 "<r/>",
                 null);
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertNull(captured.get().headers().get("Soapaction"));
     }
@@ -343,7 +353,7 @@ class ProberTest {
         handle(200, "text/xml", "<ok/>");
         AppConfig.Endpoint ep = endpoint("ua", expect(200, null, null));
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         String ua = captured.get().headers().get("User-agent");
         assertNotNull(ua);
@@ -365,7 +375,7 @@ class ProberTest {
                 "<r/>",
                 null);
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(1.0, Metrics.ENDPOINT_UP.labels("basic-ok", ep.url()).get());
     }
@@ -381,7 +391,7 @@ class ProberTest {
                 "<r/>",
                 null);
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(0.0, Metrics.ENDPOINT_UP.labels("basic-bad", ep.url()).get());
         assertEquals(401.0, Metrics.ENDPOINT_STATUS_CODE.labels("basic-bad", ep.url()).get());
@@ -408,7 +418,7 @@ class ProberTest {
                 expect(200, null, null),
                 60, 2, true);
 
-        new Prober().probe(ep);
+        runProbe(ep);
 
         assertEquals(0.0, Metrics.ENDPOINT_UP.labels("dead", ep.url()).get());
         assertEquals(0.0, Metrics.ENDPOINT_RESPONSE_SECONDS.labels("dead", ep.url()).get());
@@ -421,10 +431,13 @@ class ProberTest {
         handle(200, "text/xml", "<ok/>");
         AppConfig.Endpoint ep = endpoint("counter", expect(200, null, null));
 
-        Prober prober = new Prober();
-        prober.probe(ep);
-        prober.probe(ep);
-        prober.probe(ep);
+        try (Prober prober = new Prober(ep)) {
+            prober.probe();
+            prober.probe();
+            prober.probe();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
         assertEquals(3.0, Metrics.ENDPOINT_CHECKS_TOTAL.labels("counter", ep.url(), "success").get());
     }
