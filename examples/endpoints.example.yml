@@ -2,15 +2,15 @@
 # Copy to endpoints.yml and adapt to your environment.
 
 defaults:
-  interval: 60        # секунды между проверками
-  timeout: 10         # таймаут запроса в секундах
+  interval: 60        # seconds between probes
+  timeout: 10         # request timeout in seconds
 
 endpoints:
 
-  # Пример 1: SOAP без аутентификации
+  # Example 1: SOAP without authentication
   - name: "Example SOAP Service"
     url: "https://www.dataaccess.com/webservicesserver/NumberConversion.wso"
-    # wsdl: "https://www.dataaccess.com/webservicesserver/NumberConversion.wso?WSDL"  # опционально
+    # wsdl: "https://www.dataaccess.com/webservicesserver/NumberConversion.wso?WSDL"  # optional
     soap_action: "http://www.dataaccess.com/webservicesserver/NumberToWords"
     headers:
       Content-Type: "text/xml; charset=utf-8"
@@ -28,11 +28,11 @@ endpoints:
       type: none
     expected:
       status_code: 200
-      body_regex: "forty two"           # регулярное выражение на тело ответа
-      # body_xpath: "//return[1]"       # XPath-выражение (опционально, вместо regex)
+      body_regex: "forty two"           # regular expression matched against the response body
+      # body_xpath: "//return[1]"       # XPath expression (optional, alternative to regex)
     interval: 120
 
-  # Пример 2: SOAP с Basic Auth (заполните реальными данными)
+  # Example 2: SOAP with Basic Auth (fill in real credentials)
   # - name: "Internal SOAP with Basic Auth"
   #   url: "https://your-internal-host/soap/service"
   #   soap_action: "GetStatus"
@@ -52,7 +52,7 @@ endpoints:
   #     body_regex: "<StatusCode>OK</StatusCode>"
   #   interval: 60
 
-  # Пример 3: SOAP с Kerberos — требует krb5.conf и keytab (см. docker-compose.yml)
+  # Example 3: SOAP with Kerberos — requires krb5.conf and a keytab (see docker-compose.yml)
   # - name: "Kerberos SOAP Service"
   #   url: "https://your-internal-host/soap/api"
   #   soap_action: "Ping"
