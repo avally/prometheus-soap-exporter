@@ -1,0 +1,21 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IntelliJ
+.idea/
+*.iml
+out/
+
+# OS
+.DS_Store
+
+# Secrets — никогда не должны попадать в репо
+*.keytab
+secrets/
+krb5.conf
+
+# Локальные конфиги (пример живёт в examples/)
+endpoints.yml
+!examples/endpoints.example.yml

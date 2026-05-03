@@ -1,0 +1,43 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+group = 'com.endpointchecker'
+version = '1.0.0'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // Prometheus
+    implementation 'io.prometheus:simpleclient:0.16.0'
+    implementation 'io.prometheus:simpleclient_httpserver:0.16.0'
+
+    // Apache HttpClient 5 (SOAP + SPNEGO/Kerberos)
+    implementation 'org.apache.httpcomponents.client5:httpclient5:5.3.1'
+
+    // YAML config
+    implementation 'org.yaml:snakeyaml:2.3'
+
+    // Logging
+    implementation 'org.slf4j:slf4j-api:2.0.13'
+    implementation 'ch.qos.logback:logback-classic:1.5.6'
+}
+
+application {
+    mainClass = 'com.endpointchecker.Main'
+}
+
+shadowJar {
+    archiveClassifier = 'all'
+    mergeServiceFiles()
+}
