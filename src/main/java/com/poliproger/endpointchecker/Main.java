@@ -14,7 +14,14 @@ public class Main {
 
     public static void main(String[] args) throws Exception {
         String configPath = System.getenv().getOrDefault("ENDPOINTS_CONFIG", "/app/endpoints.yml");
-        int metricsPort  = Integer.parseInt(System.getenv().getOrDefault("METRICS_PORT", "9116"));
+        String portRaw = System.getenv().getOrDefault("METRICS_PORT", "9116");
+        int metricsPort;
+        try {
+            metricsPort = Integer.parseInt(portRaw);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(
+                    "METRICS_PORT must be an integer, got: '" + portRaw + "'", e);
+        }
 
         log.info("Loading config from {}", configPath);
         AppConfig config = AppConfig.load(configPath);
