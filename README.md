@@ -134,7 +134,7 @@ docker compose up --build
 ```yaml
 services:
   soap-exporter:
-    image: ghcr.io/poliproger/prometheus-soap-exporter:0.1.0
+    image: ghcr.io/poliproger/prometheus-soap-exporter:0.2.0
     container_name: soap-exporter
     volumes:
       - ./endpoints.yml:/app/endpoints.yml:ro
