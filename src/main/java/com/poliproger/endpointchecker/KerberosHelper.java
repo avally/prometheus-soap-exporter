@@ -1,4 +1,4 @@
-package com.endpointchecker;
+package com.poliproger.endpointchecker;
 
 import org.ietf.jgss.*;
 import org.slf4j.Logger;

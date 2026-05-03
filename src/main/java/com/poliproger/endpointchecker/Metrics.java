@@ -1,4 +1,4 @@
-package com.endpointchecker;
+package com.poliproger.endpointchecker;
 
 import io.prometheus.client.Counter;
 import io.prometheus.client.Gauge;

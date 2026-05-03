@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & run
 
 - `./gradlew clean shadowJar` — собирает fat-jar в `build/libs/*-all.jar` (плагин `com.github.johnrengelman.shadow`).
-- `./gradlew run` — запускает `com.endpointchecker.Main` локально. Требует `ENDPOINTS_CONFIG` (по умолчанию `/app/endpoints.yml`) и опционально `METRICS_PORT` (по умолчанию `9116`).
+- `./gradlew run` — запускает `com.poliproger.endpointchecker.Main` локально. Требует `ENDPOINTS_CONFIG` (по умолчанию `/app/endpoints.yml`) и опционально `METRICS_PORT` (по умолчанию `9116`).
 - `docker compose up --build` — собирает и запускает образ; `docker-compose.yml` монтирует `examples/endpoints.example.yml` как конфиг.
 - `docker build -t prometheus-soap-exporter:dev .` — двухстадийная сборка (Gradle 8.7 / JDK 21 → Temurin 21 JRE + `krb5-user` для Kerberos runtime).
 
@@ -13,7 +13,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Архитектура
 
-Однопроцессное Java 21-приложение, проба SOAP-эндпоинтов по расписанию и публикация Prometheus-метрик. Пять файлов в `com.endpointchecker`:
+Однопроцессное Java 21-приложение, проба SOAP-эндпоинтов по расписанию и публикация Prometheus-метрик. Пять файлов в `com.poliproger.endpointchecker`:
 
 - **`Main`** — entrypoint. Читает `ENDPOINTS_CONFIG` и `METRICS_PORT` из env, поднимает `HTTPServer` (Prometheus `simpleclient_httpserver`) на `/metrics`, создаёт `ScheduledExecutorService` с пулом `max(2, endpoints.size())` и для каждого эндпоинта вызывает `scheduleAtFixedRate(..., 0, interval, SECONDS)`. Главный поток блокируется на `Thread.join()`; `shutdownHook` останавливает scheduler и HTTP-сервер.
 - **`AppConfig`** — парсер `endpoints.yml` через SnakeYAML. Все типы — Java records (`Defaults`, `Auth`, `Expected`, `Endpoint`). `defaults.{interval,timeout}` применяются к каждому эндпоинту, если не переопределены. Структура YAML описана в README.md.
