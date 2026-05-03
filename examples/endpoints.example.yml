@@ -1,0 +1,74 @@
+# Example configuration for prometheus-soap-exporter.
+# Copy to endpoints.yml and adapt to your environment.
+
+defaults:
+  interval: 60        # секунды между проверками
+  timeout: 10         # таймаут запроса в секундах
+
+endpoints:
+
+  # Пример 1: SOAP без аутентификации
+  - name: "Example SOAP Service"
+    url: "https://www.dataaccess.com/webservicesserver/NumberConversion.wso"
+    # wsdl: "https://www.dataaccess.com/webservicesserver/NumberConversion.wso?WSDL"  # опционально
+    soap_action: "http://www.dataaccess.com/webservicesserver/NumberToWords"
+    headers:
+      Content-Type: "text/xml; charset=utf-8"
+    body: |
+      <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                        xmlns:web="http://www.dataaccess.com/webservicesserver/">
+        <soapenv:Header/>
+        <soapenv:Body>
+          <web:NumberToWords>
+            <web:ubiNum>42</web:ubiNum>
+          </web:NumberToWords>
+        </soapenv:Body>
+      </soapenv:Envelope>
+    auth:
+      type: none
+    expected:
+      status_code: 200
+      body_regex: "forty two"           # регулярное выражение на тело ответа
+      # body_xpath: "//return[1]"       # XPath-выражение (опционально, вместо regex)
+    interval: 120
+
+  # Пример 2: SOAP с Basic Auth (заполните реальными данными)
+  # - name: "Internal SOAP with Basic Auth"
+  #   url: "https://your-internal-host/soap/service"
+  #   soap_action: "GetStatus"
+  #   headers:
+  #     Content-Type: "text/xml; charset=utf-8"
+  #   body: |
+  #     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+  #       <soapenv:Header/>
+  #       <soapenv:Body><GetStatus/></soapenv:Body>
+  #     </soapenv:Envelope>
+  #   auth:
+  #     type: basic
+  #     username: "user"
+  #     password: "secret"
+  #   expected:
+  #     status_code: 200
+  #     body_regex: "<StatusCode>OK</StatusCode>"
+  #   interval: 60
+
+  # Пример 3: SOAP с Kerberos — требует krb5.conf и keytab (см. docker-compose.yml)
+  # - name: "Kerberos SOAP Service"
+  #   url: "https://your-internal-host/soap/api"
+  #   soap_action: "Ping"
+  #   headers:
+  #     Content-Type: "text/xml; charset=utf-8"
+  #   body: |
+  #     <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/">
+  #       <soapenv:Header/>
+  #       <soapenv:Body><Ping/></soapenv:Body>
+  #     </soapenv:Envelope>
+  #   auth:
+  #     type: kerberos
+  #     keytab: "/app/service.keytab"
+  #     principal: "monitor@DOMAIN.COM"
+  #   expected:
+  #     status_code: 200
+  #     body_regex: "<PingResult>true</PingResult>"
+  #   interval: 300
+  #   tls_verify: false

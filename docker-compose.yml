@@ -1,0 +1,12 @@
+services:
+  soap-exporter:
+    build: .
+    container_name: soap-exporter
+    volumes:
+      - ./examples/endpoints.example.yml:/app/endpoints.yml:ro
+      # Раскомментируйте для поддержки Kerberos:
+      # - /etc/krb5.conf:/etc/krb5.conf:ro
+      # - ./secrets/service.keytab:/app/service.keytab:ro
+    ports:
+      - "9116:9116"
+    restart: unless-stopped
