@@ -16,15 +16,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Однопроцессное Java 21-приложение, проба SOAP-эндпоинтов по расписанию и публикация Prometheus-метрик. Пять файлов в `com.poliproger.endpointchecker`:
 
-- **`Main`** — entrypoint. Читает `ENDPOINTS_CONFIG` и `METRICS_PORT` из env, поднимает `HTTPServer` (Prometheus `simpleclient_httpserver`) на `/metrics`, создаёт `ScheduledExecutorService` с пулом `max(2, endpoints.size())` и для каждого эндпоинта вызывает `scheduleAtFixedRate(..., 0, interval, SECONDS)`. Главный поток блокируется на `Thread.join()`; `shutdownHook` останавливает scheduler и HTTP-сервер.
-- **`AppConfig`** — парсер `endpoints.yml` через SnakeYAML. Все типы — Java records (`Defaults`, `Auth`, `Expected`, `Endpoint`). `defaults.{interval,timeout}` применяются к каждому эндпоинту, если не переопределены. Структура YAML описана в README.md.
-- **`Prober`** — на каждый probe собирает **новый** `CloseableHttpClient` (Apache HttpClient 5) и делает один POST. После probe и клиент, и response закрываются через try-with-resources. Это намеренно: Kerberos-логин и SSL-context зависят от per-endpoint настроек. Здесь же XPath/regex/status-code-валидация и обновление метрик.
-- **`KerberosHelper`** — JAAS-логин по keytab (`com.sun.security.auth.module.Krb5LoginModule`) и создание `GSSCredential` (SPNEGO + Krb5 OIDs) для использования `SPNegoSchemeFactory` в HttpClient 5. Использует `Subject.callAs` (Java 21 API, не deprecated `Subject.doAs`).
-- **`Metrics`** — четыре статических Prometheus-метрики, регистрируемые в default registry на старте класса (`soap_endpoint_up`, `soap_endpoint_response_seconds`, `soap_endpoint_status_code`, `soap_endpoint_checks_total`). Лейблы метрик — `name`, `url` (+ `result` для счётчика).
+- **`Main`** — entrypoint. Читает `ENDPOINTS_CONFIG` и `METRICS_PORT` из env, поднимает `HTTPServer` (Prometheus `simpleclient_httpserver`) на `/metrics`, создаёт `ScheduledExecutorService` с пулом `max(2, endpoints.size())` и для каждого эндпоинта инстанцирует `Prober` (один на endpoint) и вызывает `scheduleAtFixedRate(prober::probe, 0, interval, SECONDS)`. Также регистрирует `soap_endpoint_info` со статическими метаданными. Главный поток блокируется на `Thread.join()`; `shutdownHook` гасит scheduler, закрывает каждого `Prober` (а с ним — переиспользуемый `CloseableHttpClient`) и HTTP-сервер.
+- **`AppConfig`** — парсер `endpoints.yml` через SnakeYAML. Все типы — Java records (`Defaults`, `Auth`, `Expected`, `Endpoint`). `defaults.{interval,timeout}` применяются к каждому эндпоинту, если не переопределены. Валидирует обязательные поля (`name`, `url`) и required-поля для `auth.type` (`basic`: username+password, `kerberos`: principal+keytab); неизвестный `auth.type` отвергается. Структура YAML описана в README.md.
+- **`Prober`** — `AutoCloseable`, по одному на endpoint. В конструкторе один раз строит `CloseableHttpClient` (Apache HttpClient 5) с per-endpoint TLS/SSL-context'ом и при необходимости JAAS-логином по keytab; метод `probe()` использует **тот же** клиент на каждом запуске. Это снимает накладные расходы на TLS-handshake и Kerberos-login на каждый интервал. Здесь же XPath/regex/status-code-валидация и обновление метрик.
+- **`KerberosHelper`** — JAAS-логин по keytab (`com.sun.security.auth.module.Krb5LoginModule`) и создание `GSSCredential` (SPNEGO + Krb5 OIDs) для использования `SPNegoSchemeFactory` в HttpClient 5. Использует `Subject.callAs` (Java 21 API, не deprecated `Subject.doAs`). Вызывается из конструктора `Prober` ровно один раз на endpoint.
+- **`Metrics`** — статические Prometheus-метрики, регистрируемые в default registry на старте класса:
+  - `soap_endpoint_up` (Gauge, `name`,`url`)
+  - `soap_endpoint_response_seconds` (Gauge, `name`,`url`) — длительность последнего probe
+  - `soap_endpoint_status_code` (Gauge, `name`,`url`)
+  - `soap_endpoint_checks_total` (Counter, `name`,`url`,`result`)
+  - `soap_endpoint_probe_duration_seconds` (Histogram, `name`,`url`) — обновляется только при успешном HTTP-ответе; для квантилей через `histogram_quantile`
+  - `soap_endpoint_info` (Gauge, `name`,`url`,`auth_type`,`soap_action`,`expected_status_code`,`tls_verify`) — всегда `1`, регистрируется в `Main` при старте
 
 ### Важные нюансы
 
-- `scheduleAtFixedRate` выбран намеренно: если probe длится дольше `interval`, следующий запускается сразу после, без накопления. См. комментарий в `Main.java:36-38`.
+- `scheduleAtFixedRate` выбран намеренно: если probe длится дольше `interval`, следующий запускается сразу после, без накопления. См. комментарий в `Main.java`.
 - В `Prober.evaluateXPath` включён `disallow-doctype-decl=true` для защиты от XXE — не убирай.
 - При `tls_verify: false` создаётся отдельный `PoolingHttpClientConnectionManager` с `TrustAllStrategy` + `NoopHostnameVerifier`. Это нужно только для probe-клиента, не глобально.
 - `SOAPAction` оборачивается в дополнительные кавычки (`"\"" + soapAction + "\""`), как требует SOAP 1.1, и не выставляется, если уже задан в `headers`.

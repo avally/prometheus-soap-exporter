@@ -2,6 +2,7 @@ package com.poliproger.endpointchecker;
 
 import io.prometheus.client.Counter;
 import io.prometheus.client.Gauge;
+import io.prometheus.client.Histogram;
 
 public final class Metrics {
 
@@ -27,6 +28,18 @@ public final class Metrics {
             .name("soap_endpoint_checks_total")
             .help("Total number of probes performed")
             .labelNames("name", "url", "result")
+            .register();
+
+    public static final Histogram ENDPOINT_PROBE_DURATION = Histogram.build()
+            .name("soap_endpoint_probe_duration_seconds")
+            .help("Histogram of probe HTTP request duration in seconds")
+            .labelNames("name", "url")
+            .register();
+
+    public static final Gauge ENDPOINT_INFO = Gauge.build()
+            .name("soap_endpoint_info")
+            .help("Static metadata about a configured endpoint (always 1)")
+            .labelNames("name", "url", "auth_type", "soap_action", "expected_status_code", "tls_verify")
             .register();
 
     private Metrics() {}

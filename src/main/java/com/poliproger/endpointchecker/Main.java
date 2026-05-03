@@ -4,6 +4,8 @@ import io.prometheus.client.exporter.HTTPServer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -36,15 +38,19 @@ public class Main {
 
         int poolSize = Math.max(2, config.endpoints.size());
         ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(poolSize);
-        Prober prober = new Prober();
+        List<Prober> probers = new ArrayList<>(config.endpoints.size());
 
         for (AppConfig.Endpoint ep : config.endpoints) {
+            Prober prober = new Prober(ep);
+            probers.add(prober);
+            registerInfo(ep);
+
             int interval = ep.interval();
             // First probe fires immediately (delay = 0), then repeats every `interval` seconds.
             // scheduleAtFixedRate is intentional: if a probe takes longer than the interval
             // the next one starts right after instead of stacking up.
             scheduler.scheduleAtFixedRate(
-                    () -> prober.probe(ep),
+                    prober::probe,
                     0, interval, TimeUnit.SECONDS);
             log.info("Scheduled '{}' every {}s", ep.name(), interval);
         }
@@ -55,9 +61,28 @@ public class Main {
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             log.info("Shutting down...");
             scheduler.shutdown();
+            for (Prober p : probers) {
+                try {
+                    p.close();
+                } catch (Exception e) {
+                    log.warn("Failed to close probe client for '{}': {}",
+                            p, e.getMessage());
+                }
+            }
             server.close();
         }));
 
         Thread.currentThread().join();
+    }
+
+    private static void registerInfo(AppConfig.Endpoint ep) {
+        Metrics.ENDPOINT_INFO.labels(
+                ep.name(),
+                ep.url(),
+                ep.auth().type() == null ? "none" : ep.auth().type(),
+                ep.soapAction() == null ? "" : ep.soapAction(),
+                Integer.toString(ep.expected().statusCode()),
+                Boolean.toString(ep.tlsVerify())
+        ).set(1);
     }
 }

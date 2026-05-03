@@ -20,22 +20,31 @@ import org.xml.sax.InputSource;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.xpath.XPathConstants;
 import javax.xml.xpath.XPathFactory;
+import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 
-public class Prober {
+public class Prober implements AutoCloseable {
 
     private static final Logger log = LoggerFactory.getLogger(Prober.class);
     private static final String USER_AGENT = "endpoint-checker/1.0 (SOAP monitoring)";
 
-    public void probe(AppConfig.Endpoint ep) {
-        String name = ep.name();
-        String url  = ep.url();
+    private final AppConfig.Endpoint endpoint;
+    private final CloseableHttpClient client;
+
+    public Prober(AppConfig.Endpoint endpoint) throws Exception {
+        this.endpoint = endpoint;
+        this.client = buildClient(endpoint);
+    }
+
+    public void probe() {
+        String name = endpoint.name();
+        String url  = endpoint.url();
         long startNs = System.nanoTime();
 
-        try (CloseableHttpClient client = buildClient(ep)) {
-            HttpPost request = buildRequest(ep);
+        try {
+            HttpPost request = buildRequest(endpoint);
 
             try (CloseableHttpResponse response = client.execute(request)) {
                 double elapsed = (System.nanoTime() - startNs) / 1e9;
@@ -47,16 +56,17 @@ public class Prober {
 
                 Metrics.ENDPOINT_STATUS_CODE.labels(name, url).set(code);
                 Metrics.ENDPOINT_RESPONSE_SECONDS.labels(name, url).set(elapsed);
+                Metrics.ENDPOINT_PROBE_DURATION.labels(name, url).observe(elapsed);
 
-                ValidationResult vr = validate(code, body, ep.expected());
+                ValidationResult vr = validate(code, body, endpoint.expected());
                 if (vr.ok()) {
                     Metrics.ENDPOINT_UP.labels(name, url).set(1);
                     Metrics.ENDPOINT_CHECKS_TOTAL.labels(name, url, "success").inc();
-                    log.info("[OK]   {} — {}", name, String.format("%.3fs", elapsed));
+                    log.info("[OK]   {} ({}) — {}", name, url, String.format("%.3fs", elapsed));
                 } else {
                     Metrics.ENDPOINT_UP.labels(name, url).set(0);
                     Metrics.ENDPOINT_CHECKS_TOTAL.labels(name, url, "failure").inc();
-                    log.warn("[FAIL] {} — {}", name, vr.reason());
+                    log.warn("[FAIL] {} ({}) — {}", name, url, vr.reason());
                 }
             }
         } catch (Exception e) {
@@ -64,13 +74,18 @@ public class Prober {
             Metrics.ENDPOINT_RESPONSE_SECONDS.labels(name, url).set(0);
             Metrics.ENDPOINT_STATUS_CODE.labels(name, url).set(0);
             Metrics.ENDPOINT_CHECKS_TOTAL.labels(name, url, "failure").inc();
-            log.error("[ERR]  {} — {}", name, e.getMessage());
+            log.error("[ERR]  {} ({}) — {}", name, url, e.getMessage());
         }
+    }
+
+    @Override
+    public void close() throws IOException {
+        client.close();
     }
 
     // -------------------------------------------------------------------------
 
-    private CloseableHttpClient buildClient(AppConfig.Endpoint ep) throws Exception {
+    private static CloseableHttpClient buildClient(AppConfig.Endpoint ep) throws Exception {
         var builder = HttpClients.custom();
 
         if (!ep.tlsVerify()) {
@@ -116,7 +131,7 @@ public class Prober {
         return builder.build();
     }
 
-    private HttpPost buildRequest(AppConfig.Endpoint ep) {
+    private static HttpPost buildRequest(AppConfig.Endpoint ep) {
         var request = new HttpPost(ep.url());
         request.setHeader(HttpHeaders.USER_AGENT, USER_AGENT);
 
