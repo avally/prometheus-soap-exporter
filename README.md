@@ -1,15 +1,15 @@
 # prometheus-soap-exporter
 
-Prometheus exporter для активного мониторинга SOAP-эндпоинтов с поддержкой Basic Auth, SPNEGO/Kerberos и валидации тела ответа через XPath / regex.
+Prometheus exporter for active monitoring of SOAP endpoints with support for Basic Auth, SPNEGO/Kerberos, and response body validation via XPath / regex.
 
 ## Features
 
-- SOAP POST-запросы с произвольными заголовками и телом
-- Аутентификация: `none`, `basic`, `kerberos` (SPNEGO через JAAS Krb5LoginModule)
-- Валидация ответа: HTTP-код, regex по телу, XPath по XML
-- Конфигурируемые `interval`, `timeout`, `tls_verify` на уровне эндпоинта
-- Multi-arch образ: `linux/amd64`, `linux/arm64`
-- 4 Prometheus-метрики из коробки
+- SOAP POST requests with arbitrary headers and body
+- Authentication: `none`, `basic`, `kerberos` (SPNEGO via JAAS Krb5LoginModule)
+- Response validation: HTTP status code, regex over body, XPath over XML
+- Per-endpoint `interval`, `timeout`, `tls_verify`
+- Multi-arch image: `linux/amd64`, `linux/arm64`
+- 4 Prometheus metrics out of the box
 
 ## Quick start
 
@@ -20,41 +20,41 @@ docker run -d --name soap-exporter \
   ghcr.io/poliproger/prometheus-soap-exporter:latest
 ```
 
-Метрики на `http://localhost:9116/metrics`.
+Metrics are exposed at `http://localhost:9116/metrics`.
 
 ## Configuration
 
-Полная схема `endpoints.yml`:
+Full `endpoints.yml` schema:
 
 ```yaml
 defaults:
-  interval: 60        # секунды между проверками (default для всех эндпоинтов)
-  timeout: 10         # таймаут запроса в секундах (default)
+  interval: 60        # seconds between checks (default for all endpoints)
+  timeout: 10         # request timeout in seconds (default)
 
 endpoints:
-  - name: "Имя эндпоинта"           # обязательно, используется как label name
-    url: "https://..."               # обязательно
-    soap_action: "..."               # опционально, заголовок SOAPAction
-    headers:                          # опционально, произвольные HTTP-заголовки
+  - name: "Endpoint name"           # required, used as the `name` label
+    url: "https://..."               # required
+    soap_action: "..."               # optional, SOAPAction header
+    headers:                          # optional, arbitrary HTTP headers
       Content-Type: "text/xml; charset=utf-8"
-    body: |                           # опционально, тело SOAP-запроса
+    body: |                           # optional, SOAP request body
       <soapenv:Envelope>...</soapenv:Envelope>
-    auth:                             # опционально, default {type: none}
+    auth:                             # optional, default {type: none}
       type: none | basic | kerberos
-      username: "..."                 # для basic
-      password: "..."                 # для basic
-      keytab: "/app/service.keytab"   # для kerberos
-      principal: "user@DOMAIN.COM"    # для kerberos
-    expected:                         # опционально, default {status_code: 200}
+      username: "..."                 # for basic
+      password: "..."                 # for basic
+      keytab: "/app/service.keytab"   # for kerberos
+      principal: "user@DOMAIN.COM"    # for kerberos
+    expected:                         # optional, default {status_code: 200}
       status_code: 200
       body_regex: "..."               # Pattern.DOTALL
-      body_xpath: "..."               # XPath к XML-ответу
-    interval: 60                      # переопределяет defaults.interval
-    timeout: 10                       # переопределяет defaults.timeout
-    tls_verify: true                  # default true; false отключает проверку TLS
+      body_xpath: "..."               # XPath against the XML response
+    interval: 60                      # overrides defaults.interval
+    timeout: 10                       # overrides defaults.timeout
+    tls_verify: true                  # default true; false disables TLS verification
 ```
 
-См. [examples/endpoints.example.yml](examples/endpoints.example.yml).
+See [examples/endpoints.example.yml](examples/endpoints.example.yml).
 
 ## Authentication examples
 
@@ -76,7 +76,7 @@ auth:
 
 ### kerberos
 
-Требует mount `krb5.conf` и keytab внутрь контейнера:
+Requires `krb5.conf` and the keytab to be mounted into the container:
 
 ```yaml
 # docker-compose.yml
@@ -95,12 +95,12 @@ auth:
 
 ## Metrics
 
-| Метрика | Тип | Labels | Описание |
+| Metric | Type | Labels | Description |
 |---|---|---|---|
-| `soap_endpoint_up` | Gauge | `name`, `url` | 1 если последняя проверка успешна, иначе 0 |
-| `soap_endpoint_response_seconds` | Gauge | `name`, `url` | Время ответа последней проверки (секунды) |
-| `soap_endpoint_status_code` | Gauge | `name`, `url` | HTTP-код последнего ответа |
-| `soap_endpoint_checks_total` | Counter | `name`, `url`, `result` | Счётчик проверок (`result`: `success` \| `failure`) |
+| `soap_endpoint_up` | Gauge | `name`, `url` | 1 if the last check succeeded, 0 otherwise |
+| `soap_endpoint_response_seconds` | Gauge | `name`, `url` | Response time of the last check (seconds) |
+| `soap_endpoint_status_code` | Gauge | `name`, `url` | HTTP status code of the last response |
+| `soap_endpoint_checks_total` | Counter | `name`, `url`, `result` | Check counter (`result`: `success` \| `failure`) |
 
 ## Prometheus scrape config
 
@@ -114,22 +114,22 @@ scrape_configs:
 
 ## Environment variables
 
-| Переменная | Default | Описание |
+| Variable | Default | Description |
 |---|---|---|
-| `ENDPOINTS_CONFIG` | `/app/endpoints.yml` | Путь к YAML-конфигу внутри контейнера |
-| `METRICS_PORT` | `9116` | Порт HTTP-сервера метрик |
+| `ENDPOINTS_CONFIG` | `/app/endpoints.yml` | Path to the YAML config inside the container |
+| `METRICS_PORT` | `9116` | Metrics HTTP server port |
 
 ## Docker Compose
 
-### Для разработки (build из сорцов)
+### For development (build from sources)
 
-См. [docker-compose.yml](docker-compose.yml) в этом репо:
+See [docker-compose.yml](docker-compose.yml) in this repo:
 
 ```bash
 docker compose up --build
 ```
 
-### Для потребителей (готовый образ)
+### For consumers (prebuilt image)
 
 ```yaml
 services:
@@ -138,7 +138,7 @@ services:
     container_name: soap-exporter
     volumes:
       - ./endpoints.yml:/app/endpoints.yml:ro
-      # Для Kerberos:
+      # For Kerberos:
       # - /etc/krb5.conf:/etc/krb5.conf:ro
       # - ./secrets/service.keytab:/app/service.keytab:ro
     ports:
@@ -149,20 +149,20 @@ services:
 ## Building locally
 
 ```bash
-./gradlew clean shadowJar           # fat-jar в build/libs/*-all.jar
+./gradlew clean shadowJar           # fat-jar at build/libs/*-all.jar
 docker build -t prometheus-soap-exporter:dev .
 ```
 
 ## Versioning & releases
 
-Образы публикуются в GitHub Container Registry: `ghcr.io/poliproger/prometheus-soap-exporter`.
+Images are published to GitHub Container Registry: `ghcr.io/poliproger/prometheus-soap-exporter`.
 
-Теги:
-- `latest` — последний коммит в `main`
-- `sha-<short>` — на каждый коммит в `main` и каждый tag
-- `vX.Y.Z`, `X.Y`, `X` — на git-теги вида `v*` (semver)
+Tags:
+- `latest` — latest commit on `main`
+- `sha-<short>` — every commit on `main` and every git tag
+- `vX.Y.Z`, `X.Y`, `X` — on git tags matching `v*` (semver)
 
-CI: см. [.github/workflows/](.github/workflows/).
+CI: see [.github/workflows/](.github/workflows/).
 
 ## License
 
