@@ -41,4 +41,4 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `.github/workflows/build.yml` — на PR в `main`: только `docker buildx build` без push (валидация Dockerfile).
 - `.github/workflows/release.yml` — на push в `main` и теги `v*`: multi-arch (`linux/amd64`, `linux/arm64`) push в `ghcr.io/${owner}/prometheus-soap-exporter` с тегами `latest` (только main), `sha-<short>`, и semver (`X.Y.Z`, `X.Y`, `X`) для git-тегов.
-- В `build.gradle` версия зашита как `1.0.0`, но публикуемые теги образа берутся **только** из git-тегов через `docker/metadata-action`. README ссылается на `0.1.0` как реальный релизный тег.
+- В `build.gradle` версия зашита как `0.2.0`. Публикуемые теги Docker-образа берутся **только** из git-тегов через `docker/metadata-action`, поэтому версия в gradle нужна лишь для имени fat-jar (`build/libs/*-0.2.0-all.jar`); чтобы образ получил тег `0.2.0`, нужно создать git-тег `v0.2.0`.
