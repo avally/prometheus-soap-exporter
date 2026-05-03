@@ -40,8 +40,10 @@ public class Prober {
             try (CloseableHttpResponse response = client.execute(request)) {
                 double elapsed = (System.nanoTime() - startNs) / 1e9;
                 int code = response.getCode();
-                String body = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
-                if (body == null) body = "";
+                HttpEntity entity = response.getEntity();
+                String body = entity == null
+                        ? ""
+                        : EntityUtils.toString(entity, StandardCharsets.UTF_8);
 
                 Metrics.ENDPOINT_STATUS_CODE.labels(name, url).set(code);
                 Metrics.ENDPOINT_RESPONSE_SECONDS.labels(name, url).set(elapsed);

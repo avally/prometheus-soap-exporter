@@ -6,10 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - `./gradlew clean shadowJar` — собирает fat-jar в `build/libs/*-all.jar` (плагин `com.github.johnrengelman.shadow`).
 - `./gradlew run` — запускает `com.poliproger.endpointchecker.Main` локально. Требует `ENDPOINTS_CONFIG` (по умолчанию `/app/endpoints.yml`) и опционально `METRICS_PORT` (по умолчанию `9116`).
+- `./gradlew test` — гоняет JUnit 5 тесты (`AppConfigTest`, `MetricsTest`, `ProberTest`). После теста автоматически запускается `jacocoTestReport` (HTML/XML в `build/reports/jacoco/test/`). `Main` и `KerberosHelper*` исключены из coverage в `build.gradle`.
 - `docker compose up --build` — собирает и запускает образ; `docker-compose.yml` монтирует `examples/endpoints.example.yml` как конфиг.
 - `docker build -t prometheus-soap-exporter:dev .` — двухстадийная сборка (Gradle 8.7 / JDK 21 → Temurin 21 JRE + `krb5-user` для Kerberos runtime).
 
-Тестов нет (нет `src/test/**`, нет JUnit-зависимости). Не выдумывай команды для них.
+Тесты — JUnit Jupiter (`junit-bom:5.10.2`). `ProberTest` поднимает локальный `com.sun.net.httpserver.HttpServer` на эфемерном порту и ходит в него реальным HC5-клиентом, проверяя метрики, headers, Basic-auth, XPath/regex и обработку ошибок. Тесты используют статические `Metrics.*` — каждый тест начинает со `clear()` всех гейджей и каунтера.
 
 ## Архитектура
 

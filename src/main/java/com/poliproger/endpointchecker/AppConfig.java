@@ -54,7 +54,14 @@ public class AppConfig {
     @SuppressWarnings("unchecked")
     private static Endpoint parseEndpoint(Map<String, Object> ep, Defaults defaults) {
         String name = (String) ep.get("name");
+        if (name == null || name.isBlank()) {
+            throw new IllegalArgumentException("Endpoint is missing required field 'name'");
+        }
         String url  = (String) ep.get("url");
+        if (url == null || url.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Endpoint '" + name + "' is missing required field 'url'");
+        }
         String soapAction = (String) ep.get("soap_action");
         String body = (String) ep.getOrDefault("body", "");
         int interval  = toInt(ep.getOrDefault("interval", defaults.interval()));
@@ -76,6 +83,7 @@ public class AppConfig {
                 (String) authMap.get("keytab"),
                 (String) authMap.get("principal")
         );
+        validateAuth(name, auth);
 
         // Expected
         Map<String, Object> expMap =
@@ -88,6 +96,27 @@ public class AppConfig {
 
         return new Endpoint(name, url, soapAction, headers, body,
                 auth, expected, interval, timeout, tlsVerify);
+    }
+
+    private static void validateAuth(String endpointName, Auth auth) {
+        String type = auth.type() == null ? "none" : auth.type().toLowerCase();
+        switch (type) {
+            case "none" -> {}
+            case "basic" -> {
+                if (auth.username() == null || auth.password() == null) {
+                    throw new IllegalArgumentException("Endpoint '" + endpointName
+                            + "' uses basic auth but is missing 'username' or 'password'");
+                }
+            }
+            case "kerberos" -> {
+                if (auth.principal() == null || auth.keytab() == null) {
+                    throw new IllegalArgumentException("Endpoint '" + endpointName
+                            + "' uses kerberos auth but is missing 'principal' or 'keytab'");
+                }
+            }
+            default -> throw new IllegalArgumentException("Endpoint '" + endpointName
+                    + "' has unknown auth type: '" + auth.type() + "'");
+        }
     }
 
     private static int toInt(Object value) {
