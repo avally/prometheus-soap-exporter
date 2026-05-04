@@ -23,6 +23,7 @@ import javax.xml.xpath.XPathFactory;
 import java.io.IOException;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.regex.Pattern;
 
 public class Prober implements AutoCloseable {
@@ -148,11 +149,21 @@ public class Prober implements AutoCloseable {
             request.setHeader("SOAPAction", "\"" + ep.soapAction() + "\"");
         }
 
-        request.setConfig(RequestConfig.custom()
+        var configBuilder = RequestConfig.custom()
                 .setConnectTimeout(Timeout.ofSeconds(ep.timeout()))
                 .setConnectionRequestTimeout(Timeout.ofSeconds(ep.timeout()))
-                .setResponseTimeout(Timeout.ofSeconds(ep.timeout()))
-                .build());
+                .setResponseTimeout(Timeout.ofSeconds(ep.timeout()));
+
+        // Force SPNEGO when Kerberos is configured. Some servers (e.g. IIS)
+        // return WWW-Authenticate: Negotiate, NTLM, Basic in one response;
+        // HC5's default strategy can pick Basic first and, since only the
+        // SPNEGO factory is registered, give up with a final 401 instead of
+        // trying Negotiate.
+        if ("kerberos".equalsIgnoreCase(ep.auth().type())) {
+            configBuilder.setTargetPreferredAuthSchemes(List.of(StandardAuthScheme.SPNEGO));
+        }
+
+        request.setConfig(configBuilder.build());
 
         return request;
     }
